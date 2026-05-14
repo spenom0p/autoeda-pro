@@ -53,6 +53,43 @@ def detect_and_convert_types(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
 
 
 # ──────────────────────────────────────────
+# Standardize date formats to DD-MM-YYYY
+# ──────────────────────────────────────────
+def standardize_date_formats(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
+    """
+    Converts all datetime columns to DD-MM-YYYY format string.
+    Also handles mixed date formats in object columns.
+    Returns updated df + a log of formatted columns.
+    """
+    formatted = {}
+    
+    for col in df.columns:
+        # Check if column is datetime type
+        if pd.api.types.is_datetime64_any_dtype(df[col]):
+            df[col] = df[col].dt.strftime('%d-%m-%Y')
+            formatted[col] = "Formatted to DD-MM-YYYY"
+        
+        # Check if object column contains mixed date formats
+        elif df[col].dtype == 'object':
+            non_null = df[col].dropna()
+            if non_null.empty:
+                continue
+            
+            try:
+                # Try to parse as datetime
+                parsed_dates = pd.to_datetime(non_null, errors="coerce", infer_datetime_format=True)
+                
+                # If more than 70% parse successfully, it's a date column
+                if parsed_dates.notna().mean() > 0.7:
+                    df[col] = pd.to_datetime(df[col], errors="coerce").dt.strftime('%d-%m-%Y')
+                    formatted[col] = "Standardized mixed formats to DD-MM-YYYY"
+            except Exception:
+                pass
+    
+    return df, formatted
+
+
+# ──────────────────────────────────────────
 # Duplicates
 # ──────────────────────────────────────────
 def remove_duplicates(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
@@ -179,6 +216,7 @@ def clean_data(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
     report = {
         "original_shape": df.shape,
         "datatype_conversions": {},
+        "date_standardization": {},
         "duplicates_removed": 0,
         "dropped_columns": [],
         "rows_removed": 0,
@@ -190,6 +228,7 @@ def clean_data(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
     }
 
     df, report["datatype_conversions"] = detect_and_convert_types(df)
+    df, report["date_standardization"] = standardize_date_formats(df)
     df, report["duplicates_removed"] = remove_duplicates(df)
     df, report["dropped_columns"] = drop_high_missing_columns(df)
     df, report["rows_removed"] = drop_bad_rows(df)
