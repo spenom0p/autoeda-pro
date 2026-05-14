@@ -37,7 +37,6 @@ if file:
             df = pd.read_csv(io.BytesIO(raw), encoding=encoding)
 
         except (UnicodeDecodeError, pd.errors.ParserError):
-            # fallback chain if chardet guess is wrong
             df = None
             for enc in ["utf-8", "utf-8-sig", "latin-1", "cp1252"]:
                 try:
@@ -103,6 +102,14 @@ if st.session_state.df_clean is not None:
     st.subheader("Clean Dataset Preview")
     st.dataframe(df_clean.head())
 
+    # ✅ Download button placed right after cleaning report
+    st.download_button(
+        "Download Clean Dataset",
+        df_clean.to_csv(index=False),
+        "clean_data.csv"
+    )
+
+    st.divider()
 
     # automatic EDA
     generate_eda(df_clean)
@@ -162,8 +169,6 @@ if st.session_state.df_clean is not None:
         key="chart"
     )
 
-
-    # chart explanations
     chart_help = {
         "scatter": "Shows relationship between two numeric variables.",
         "bar": "Compares values across categories.",
@@ -176,8 +181,6 @@ if st.session_state.df_clean is not None:
 
     st.info(chart_help[chart])
 
-
-    # chart generation
     if chart == "scatter":
         fig = px.scatter(df_clean, x=x, y=y)
 
@@ -200,11 +203,3 @@ if st.session_state.df_clean is not None:
         fig = px.pie(df_clean, names=x)
 
     st.plotly_chart(fig, use_container_width=True)
-
-
-    # download cleaned dataset
-    st.download_button(
-        "Download Clean Dataset",
-        df_clean.to_csv(index=False),
-        "clean_data.csv"
-    )
