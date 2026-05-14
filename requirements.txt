@@ -6,3 +6,4 @@ seaborn
 matplotlib
 openpyxl
 mysql-connector-python
+chardet
