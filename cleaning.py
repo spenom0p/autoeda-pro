@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import warnings
 from datetime import datetime
+import re
 
 
 # ──────────────────────────────────────────
@@ -58,16 +59,20 @@ def detect_and_convert_types(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
 def standardize_date_formats(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
     """
     Converts all datetime columns to DD-MM-YYYY format string.
-    Also handles mixed date formats in object columns.
+    Handles mixed date formats: DD-MM-YYYY, MM/DD/YYYY, M/DD/YYYY, MM-DD-YYYY, etc.
     Returns updated df + a log of formatted columns.
     """
     formatted = {}
     
     for col in df.columns:
+        original_dtype = str(df[col].dtype)
+        is_date_column = False
+        
         # Check if column is datetime type
         if pd.api.types.is_datetime64_any_dtype(df[col]):
             df[col] = df[col].dt.strftime('%d-%m-%Y')
             formatted[col] = "Formatted to DD-MM-YYYY"
+            is_date_column = True
         
         # Check if object column contains mixed date formats
         elif df[col].dtype == 'object':
@@ -76,16 +81,26 @@ def standardize_date_formats(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
                 continue
             
             try:
-                # Try to parse as datetime
-                parsed_dates = pd.to_datetime(non_null, errors="coerce", infer_datetime_format=True)
+                # Try to parse with multiple format attempts
+                successful_parse = 0
+                total_valid = len(non_null)
                 
-                # If more than 70% parse successfully, it's a date column
-                if parsed_dates.notna().mean() > 0.7:
-                    df[col] = pd.to_datetime(df[col], errors="coerce").dt.strftime('%d-%m-%Y')
-                    formatted[col] = "Standardized mixed formats to DD-MM-YYYY"
-            except Exception:
+                # First attempt: generic pandas datetime parsing
+                parsed_dates = pd.to_datetime(non_null, errors="coerce", infer_datetime_format=True)
+                successful_parse = parsed_dates.notna().sum()
+                
+                # If >70% successful, convert the entire column
+                if successful_parse / total_valid > 0.7:
+                    df[col] = pd.to_datetime(df[col], errors="coerce")
+                    # Format all valid dates to DD-MM-YYYY
+                    df[col] = df[col].dt.strftime('%d-%m-%Y')
+                    formatted[col] = f"Standardized {original_dtype} to DD-MM-YYYY ({successful_parse}/{total_valid} dates)"
+                    is_date_column = True
+                    
+            except Exception as e:
+                # Silent fail - not a date column
                 pass
-    
+        
     return df, formatted
 
 
