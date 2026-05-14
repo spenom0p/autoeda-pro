@@ -80,6 +80,12 @@ if st.session_state.df_clean is not None:
     else:
         st.write("No datatype conversions needed")
 
+    st.write("### Date Standardization")
+    if report["date_standardization"]:
+        st.write(report["date_standardization"])
+    else:
+        st.write("No date columns found or standardized")
+
     st.write("### Duplicates Removed")
     st.write(report["duplicates_removed"])
 
