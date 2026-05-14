@@ -1,3 +1,5 @@
+import io
+import chardet
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -21,13 +23,33 @@ if "report" not in st.session_state:
     st.session_state.report = None
 
 
-file = st.file_uploader("Upload Dataset", type=["csv","xlsx"])
+file = st.file_uploader("Upload Dataset", type=["csv", "xlsx"])
 
 
 if file:
 
     if file.name.endswith("csv"):
-        df = pd.read_csv(file)
+        raw = file.read()
+        detected = chardet.detect(raw)
+        encoding = detected["encoding"] or "utf-8"
+
+        try:
+            df = pd.read_csv(io.BytesIO(raw), encoding=encoding)
+
+        except (UnicodeDecodeError, pd.errors.ParserError):
+            # fallback chain if chardet guess is wrong
+            df = None
+            for enc in ["utf-8", "utf-8-sig", "latin-1", "cp1252"]:
+                try:
+                    df = pd.read_csv(io.BytesIO(raw), encoding=enc)
+                    break
+                except (UnicodeDecodeError, pd.errors.ParserError):
+                    continue
+
+            if df is None:
+                st.error("Could not decode the CSV file. Try re-saving it as UTF-8.")
+                st.stop()
+
     else:
         df = pd.read_excel(file)
 
@@ -157,31 +179,24 @@ if st.session_state.df_clean is not None:
 
     # chart generation
     if chart == "scatter":
-
         fig = px.scatter(df_clean, x=x, y=y)
 
     elif chart == "bar":
-
         fig = px.bar(df_clean, x=x, y=y)
 
     elif chart == "line":
-
         fig = px.line(df_clean, x=x, y=y)
 
     elif chart == "histogram":
-
         fig = px.histogram(df_clean, x=x)
 
     elif chart == "box":
-
         fig = px.box(df_clean, x=x, y=y)
 
     elif chart == "violin":
-
         fig = px.violin(df_clean, x=x, y=y)
 
     elif chart == "pie":
-
         fig = px.pie(df_clean, names=x)
 
     st.plotly_chart(fig, use_container_width=True)
