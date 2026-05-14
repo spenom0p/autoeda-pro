@@ -7,3 +7,5 @@ matplotlib
 openpyxl
 mysql-connector-python
 chardet
+warnings
+datetime
